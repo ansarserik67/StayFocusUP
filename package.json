@@ -1,0 +1,37 @@
+{
+  "name": "stay-focused",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:logic": "tsx scripts/logic.test.ts",
+    "db:verify": "node scripts/verify-schema.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
+    "@supabase/supabase-js": "2.118.0",
+    "lucide-react": "1.61.0",
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "postcss": "^8",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
+    "typescript": "^5"
+  }
+}
