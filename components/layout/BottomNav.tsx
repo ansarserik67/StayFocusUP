@@ -14,16 +14,16 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-line/80 bg-surface/85 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-2xl lg:hidden"
+      className="bottom-bar lg:hidden"
       aria-label={t("nav.primary")}
     >
       {sessionActive && (
-        <div className="mx-auto mb-1 flex w-fit items-center gap-1.5 rounded-full bg-emerald/12 px-2.5 py-0.5 text-[10px] font-semibold text-emerald">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
+        <div className="mx-auto mb-1 flex w-fit items-center gap-1.5 rounded-full border border-cyan/25 bg-cyan/12 px-2.5 py-0.5 text-[10px] font-semibold text-cyan">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan" />
           <span className="mono">{formatDuration(remaining)}</span>
         </div>
       )}
-      <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+      <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -35,7 +35,7 @@ export function BottomNav() {
               aria-current={active ? "page" : undefined}
               className="bottom-nav-item"
             >
-              <Icon size={19} strokeWidth={active ? 2.4 : 1.9} />
+              <Icon size={19} strokeWidth={active ? 2.3 : 1.8} />
               <span className="line-clamp-1">{t(item.labelKey)}</span>
             </Link>
           );

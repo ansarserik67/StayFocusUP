@@ -55,7 +55,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", theme === "dark" ? "#0F172A" : "#F8FAFC");
+    if (meta) meta.setAttribute("content", theme === "dark" ? "#0A0A0C" : "#EEF0F5");
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {

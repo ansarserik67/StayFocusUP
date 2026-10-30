@@ -114,7 +114,12 @@ interface FocusValue {
   deleteTask: (id: string) => void;
   addRoutine: (title: string, required?: boolean, needsPhoto?: boolean) => Routine;
   removeRoutine: (id: string) => void;
-  submitRoutinePhoto: (routineId: string, photoDataUrl: string | null) => void;
+  submitRoutinePhoto: (
+    routineId: string,
+    photoDataUrl: string | null,
+    check?: { ok: boolean; reasons: string[] },
+    photoHash?: string | null,
+  ) => void;
   verifyRoutine: (routineId: string) => void;
   rejectRoutine: (routineId: string) => void;
   feedPetByRoutines: () => boolean;
@@ -199,14 +204,40 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   /* Persistence                                                            */
   /* ---------------------------------------------------------------------- */
 
+  // The exact string this tab last wrote. Every other tab compares against it
+  // so two open tabs cannot bounce the same snapshot back and forth forever.
+  const lastWrittenRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const raw = JSON.stringify(state);
+      if (lastWrittenRef.current === raw) return;
+      lastWrittenRef.current = raw;
+      window.localStorage.setItem(STORAGE_KEY, raw);
     } catch {
       /* quota or private mode — the session still works in memory */
     }
   }, [state, hydrated]);
+
+  // Adopt what another tab persisted — but never while a session is running
+  // here, and never echo the value straight back (that would be a write loop).
+  useEffect(() => {
+    if (!hydrated) return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return;
+      if (!event.newValue || event.newValue === lastWrittenRef.current) return;
+      if (stateRef.current.session) return;
+      try {
+        lastWrittenRef.current = event.newValue;
+        dispatch({ type: "hydrate", state: sanitizeState(JSON.parse(event.newValue), dayKey()) });
+      } catch {
+        /* a half-written value from another tab — ignore, this tab keeps its own */
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [hydrated]);
 
   /* ---------------------------------------------------------------------- */
   /* Session lifecycle                                                      */
@@ -249,10 +280,34 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer);
   }, [state.session]);
 
+  /**
+   * The deadline is authoritative.
+   *
+   * A throttled background interval can fire late (or not at all in a window
+   * that is merely sitting beside the social site), so the session is not
+   * closed by a tick count — a single timeout is armed for `endsAt` itself and
+   * the elapsed time is recomputed from the wall clock when it fires.
+   */
+  useEffect(() => {
+    const session = state.session;
+    if (!session) return;
+    const delay = session.endsAt - Date.now();
+    if (delay <= 0) {
+      finalizeSession(Date.now());
+      return;
+    }
+    // setTimeout cannot hold more than ~24.8 days; a budget never comes close.
+    if (delay > 2_000_000_000) return;
+    const timer = window.setTimeout(() => finalizeSession(Date.now()), delay + 40);
+    return () => window.clearTimeout(timer);
+  }, [state.session, finalizeSession]);
+
   useEffect(() => {
     const onVisibility = () => {
       const at = Date.now();
       setNow(at);
+      // Going away is expected: the user is inside the social site. Coming back
+      // is what ends the session, however long the tab was hidden.
       if (document.visibilityState !== "visible") return;
       finalizeSession(at);
       const today = dayKey();
@@ -262,13 +317,38 @@ export function FocusProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [finalizeSession]);
 
+  // A hard close must not leave a half-settled session behind: write the
+  // charged state synchronously so the next load resumes from a clean budget.
+  useEffect(() => {
+    const onPageHide = () => {
+      const current = stateRef.current;
+      if (!current.session) return;
+      const settled = focusReducer(current, {
+        type: "endSession",
+        today: dayKey(),
+        consumedSeconds: sessionConsumedSeconds(current, Date.now()),
+      });
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settled));
+      } catch {
+        /* nothing else we can do while the page is going away */
+      }
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, []);
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       const today = dayKey();
-      if (stateRef.current.day !== today) dispatch({ type: "rollover", today });
+      if (stateRef.current.day === today) return;
+      // Settle the running session against yesterday before the new day resets
+      // the budget, otherwise the minutes spent would simply disappear.
+      finalizeSession(Date.now());
+      dispatch({ type: "rollover", today });
     }, 30_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [finalizeSession]);
 
   /**
    * Starts a session for one social app. The budget it may spend is the
@@ -400,8 +480,20 @@ export function FocusProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const submitRoutinePhoto = useCallback(
-    (routineId: string, photoDataUrl: string | null) => {
-      dispatch({ type: "submitRoutinePhoto", routineId, today: dayKey(), photoDataUrl });
+    (
+      routineId: string,
+      photoDataUrl: string | null,
+      check?: { ok: boolean; reasons: string[] },
+      photoHash?: string | null,
+    ) => {
+      dispatch({
+        type: "submitRoutinePhoto",
+        routineId,
+        today: dayKey(),
+        photoDataUrl,
+        check,
+        photoHash,
+      });
     },
     [],
   );
@@ -417,16 +509,17 @@ export function FocusProvider({ children }: { children: ReactNode }) {
 
   const feedPetByRoutines = useCallback(() => {
     const current = stateRef.current;
+    const name = current.pet.name || t("pet.defaultName");
     if (current.pet.fedViaRoutinesDay === dayKey()) {
-      push(t("pet.feedToday"), "info");
+      push(t("pet.feedAlready", { name }), "info");
       return false;
     }
     if (!allRoutinesVerified(current, dayKey())) {
-      push(t("pet.noEnergy"), "error");
+      push(t("pet.needRoutines"), "error");
       return false;
     }
     dispatch({ type: "feedPetByRoutines", today: dayKey() });
-    push(t("pet.feedDone", { name: current.pet.name || t("pet.defaultName") }), "success");
+    push(t("pet.feedDone", { name }), "success");
     return true;
   }, [push, t]);
 

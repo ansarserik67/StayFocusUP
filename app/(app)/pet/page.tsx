@@ -1,22 +1,22 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Apple,
   Camera,
   Check,
-  Circle,
   Flame,
   Gamepad2,
   Heart,
   ImagePlus,
+  Loader2,
   Pencil,
   Plus,
   ShieldCheck,
   Sparkles,
   Trash2,
   Trophy,
-  Upload,
   X,
   Zap,
 } from "lucide-react";
@@ -28,6 +28,8 @@ import { PetAvatar } from "@/components/pet/PetAvatar";
 import { Modal } from "@/components/ui/Modal";
 import { WEEKDAYS, formatDate, formatMinutes } from "@/lib/i18n";
 import { addDays, lastDays, weekTotals } from "@/lib/state";
+import { reasonText, type ReportReason } from "@/lib/routine-check";
+import { checkRoutinePhoto } from "@/lib/routine-photo";
 import { FEED_COST, PLAY_COST, petMood } from "@/lib/types";
 
 export default function PetPage() {
@@ -44,8 +46,6 @@ export default function PetPage() {
     addRoutine,
     removeRoutine,
     submitRoutinePhoto,
-    verifyRoutine,
-    rejectRoutine,
     feedPetByRoutines,
     routinesVerified,
     fedViaRoutinesToday,
@@ -55,7 +55,46 @@ export default function PetPage() {
   const [draftName, setDraftName] = useState("");
   const [routineTitle, setRoutineTitle] = useState("");
   const [photoOpen, setPhotoOpen] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [verdicts, setVerdicts] = useState<
+    Record<string, { ok: boolean; reasons: ReportReason[] }>
+  >({});
+
+  /** Hashes of photos already accepted — the same frame cannot be reused. */
+  const seenHashes = useMemo(
+    () =>
+      state.routineLogs
+        .map((log) => log.photoHash)
+        .filter((hash): hash is string => Boolean(hash)),
+    [state.routineLogs],
+  );
+
+  const handlePhoto = async (routineId: string, file: File | undefined) => {
+    if (!file) return;
+
+    setCheckingId(routineId);
+    setVerdicts((prev) => {
+      const next = { ...prev };
+      delete next[routineId];
+      return next;
+    });
+
+    try {
+      const result = await checkRoutinePhoto(file, seenHashes);
+      submitRoutinePhoto(
+        routineId,
+        result.dataUrl,
+        { ok: result.ok, reasons: result.reasons },
+        result.metrics?.hash ?? null,
+      );
+      setVerdicts((prev) => ({
+        ...prev,
+        [routineId]: { ok: result.ok, reasons: result.reasons },
+      }));
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   const petName = state.pet.name || t("pet.defaultName");
   const mood = petMood(state.pet.happiness);
@@ -146,18 +185,18 @@ export default function PetPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid w-full grid-cols-3 gap-2">
-              <div className="rounded-xl border border-line bg-surface-2/50 p-2.5">
-                <p className="font-display text-[20px] font-extrabold leading-none">{state.energy}</p>
-                <p className="mt-1 text-[10px] text-ink-mute">{t("pet.energy")}</p>
+            <div className="mt-5 grid w-full min-w-0 grid-cols-3 gap-2">
+              <div className="min-w-0 rounded-[14px] border border-line bg-surface-2/50 p-2.5">
+                <p className="font-display mono text-[20px] font-bold leading-none">{state.energy}</p>
+                <p className="mt-1 truncate text-[10px] text-ink-mute">{t("pet.energy")}</p>
               </div>
-              <div className="rounded-xl border border-line bg-surface-2/50 p-2.5">
-                <p className="font-display text-[20px] font-extrabold leading-none">{state.streak}</p>
-                <p className="mt-1 text-[10px] text-ink-mute">{t("pet.streak")}</p>
+              <div className="min-w-0 rounded-[14px] border border-line bg-surface-2/50 p-2.5">
+                <p className="font-display mono text-[20px] font-bold leading-none">{state.streak}</p>
+                <p className="mt-1 truncate text-[10px] text-ink-mute">{t("pet.streak")}</p>
               </div>
-              <div className="rounded-xl border border-line bg-surface-2/50 p-2.5">
-                <p className="font-display text-[20px] font-extrabold leading-none">{state.bestStreak}</p>
-                <p className="mt-1 text-[10px] text-ink-mute">{t("pet.best")}</p>
+              <div className="min-w-0 rounded-[14px] border border-line bg-surface-2/50 p-2.5">
+                <p className="font-display mono text-[20px] font-bold leading-none">{state.bestStreak}</p>
+                <p className="mt-1 truncate text-[10px] text-ink-mute">{t("pet.best")}</p>
               </div>
             </div>
           </div>
@@ -170,7 +209,8 @@ export default function PetPage() {
               <div>
                 <h2 className="text-card">Дневные рутины</h2>
                 <p className="mt-1 text-[11.5px] text-ink-mute">
-                  Выполни рутины, сделай фотоотчёт, подтверди выполнение — только тогда можно покормить питомца.
+                  Сфотографируй результат каждой рутины — приложение само проверит снимок и засчитает рутину только если
+                  он настоящий. Только тогда можно покормить питомца.
                 </p>
               </div>
               <span className="chip !border-emerald/30 !bg-emerald/10 !text-emerald">
@@ -200,24 +240,36 @@ export default function PetPage() {
 
             <div className="mt-4 space-y-2">
               {state.routines.length === 0 ? (
-                <p className="text-[11.5px] text-ink-mute">Добавь свои дневные рутины. Для каждой нужно прикрепить фотоотчёт и подтвердить выполнение.</p>
+                <p className="text-[11.5px] leading-relaxed text-ink-mute">
+                  Добавь свои дневные рутины. Для каждой нужно сделать фотоотчёт — приложение само проверит снимок и
+                  засчитает рутину только если он настоящий.
+                </p>
               ) : (
                 state.routines.map((routine) => {
                   const log = getRoutineLog(routine.id);
+                  const checking = checkingId === routine.id;
+                  const storedReasons = log.note
+                    ? (log.note.split(",").filter(Boolean) as ReportReason[])
+                    : [];
+                  const reasons = verdicts[routine.id]?.reasons ?? storedReasons;
+                  const verified = log.status === "verified";
+
                   return (
                     <div
                       key={routine.id}
                       className="rounded-2xl border border-line bg-surface-2/40 p-3.5"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[13px] font-semibold">{routine.title}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold">{routine.title}</p>
                           <p className="mt-0.5 text-[10.5px] text-ink-mute">
-                            {log.status === "verified"
-                              ? "Выполнено и подтверждено"
-                              : log.status === "submitted"
-                                ? "Фотоотчёт отправлен, нужно подтвердить"
-                                : "Требуется фотоотчёт и подтверждение"}
+                            {verified
+                              ? "Фото проверено — рутина засчитана"
+                              : checking
+                                ? "Проверяем снимок…"
+                                : reasons.length > 0
+                                  ? "Фото не прошло проверку"
+                                  : "Нужен фотоотчёт"}
                           </p>
                         </div>
                         <button
@@ -230,64 +282,69 @@ export default function PetPage() {
                         </button>
                       </div>
 
-                      {log.status === "verified" ? (
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-emerald">
-                          <ShieldCheck size={14} />
-                          <span>Верифицировано — питомец готов к кормлению</span>
-                        </div>
-                      ) : (
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <input
-                            ref={fileRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                submitRoutinePhoto(routine.id, String(reader.result));
-                                setPhotoOpen(routine.id);
-                              };
-                              reader.readAsDataURL(file);
-                              e.target.value = "";
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => fileRef.current?.click()}
-                            className="btn btn-secondary"
-                          >
-                            <ImagePlus size={16} />
-                            {log.photoDataUrl ? "Изменить фотоотчёт" : "Прикрепить фотоотчёт"}
-                          </button>
-                          {log.photoDataUrl ? (
+                      {verified ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="chip !border-emerald/30 !bg-emerald/10 !text-emerald !text-[10px]">
+                            <ShieldCheck size={12} /> Проверено автоматически
+                          </span>
+                          {log.photoDataUrl && (
                             <button
                               type="button"
                               onClick={() => setPhotoOpen(routine.id)}
-                              className="btn btn-ghost"
+                              className="btn btn-ghost !min-h-[30px] px-2 text-[11.5px]"
                             >
-                              <Camera size={16} /> Посмотреть фото
+                              <Camera size={13} /> Посмотреть фото
                             </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => verifyRoutine(routine.id)}
-                            disabled={routine.needsPhoto && !log.photoDataUrl}
-                            className="btn btn-primary"
-                          >
-                            <Check size={16} /> Подтвердить выполнение
-                          </button>
-                          {log.status === "submitted" ? (
-                            <button
-                              type="button"
-                              onClick={() => rejectRoutine(routine.id)}
-                              className="btn btn-ghost"
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label
+                              className={`btn btn-secondary !min-h-[38px] cursor-pointer text-[12.5px] ${
+                                checking ? "pointer-events-none opacity-60" : ""
+                              }`}
                             >
-                              <X size={16} /> Отклонить и пересдать
-                            </button>
-                          ) : null}
+                              {checking ? (
+                                <Loader2 size={15} className="animate-spin" />
+                              ) : (
+                                <ImagePlus size={15} />
+                              )}
+                              {checking
+                                ? "Проверяем фото…"
+                                : reasons.length > 0
+                                  ? "Загрузить другое фото"
+                                  : "Сделать фотоотчёт"}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="sr-only"
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  event.target.value = "";
+                                  void handlePhoto(routine.id, file);
+                                }}
+                              />
+                            </label>
+                            <span className="text-[10px] leading-snug text-ink-mute">
+                              Проверка на устройстве · снимок никуда не отправляется
+                            </span>
+                          </div>
+
+                          {!checking && reasons.length > 0 && (
+                            <ul className="mt-2 space-y-1 rounded-xl border border-rose/25 bg-rose/10 p-2.5">
+                              {reasons.map((reason) => (
+                                <li
+                                  key={reason}
+                                  className="flex gap-1.5 text-[10.5px] leading-snug text-rose"
+                                >
+                                  <AlertTriangle size={12} className="mt-0.5 flex-none" />
+                                  {reasonText(reason)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       )}
                     </div>
@@ -301,7 +358,7 @@ export default function PetPage() {
                 <div>
                   <p className="text-[13px] font-semibold">Кормление питомца по рутинам</p>
                   <p className="mt-0.5 text-[10.5px] text-ink-mute">
-                    Питомец получит корм только когда все обязательные рутины за сегодня верифицированы.
+                    Питомец получит корм только когда все рутины за сегодня подтверждены проверенными фото.
                   </p>
                 </div>
                 <span className={`chip !py-0.5 !text-[10px] ${fedViaRoutinesToday ? "!border-emerald/30 !text-emerald" : ""}`}>
@@ -315,7 +372,13 @@ export default function PetPage() {
                 className="btn btn-primary mt-3 w-full"
               >
                 <Apple size={17} />
-                {fedViaRoutinesToday ? "Питомец покормлен по рутинам" : routinesVerified ? "Покормить питомца (+энергия и счастье)" : "Сначала выполни и подтверди все рутины"}
+                {fedViaRoutinesToday
+                  ? "Питомец покормлен по рутинам"
+                  : routinesVerified
+                    ? "Покормить питомца (+энергия и счастье)"
+                    : state.routines.length === 0
+                      ? "Сначала добавь хотя бы одну рутину"
+                      : "Сначала выполни все рутины с фотоотчётом"}
               </button>
             </div>
 
@@ -357,7 +420,9 @@ export default function PetPage() {
               </span>
             </div>
             <p className="mt-2 text-[10.5px] leading-relaxed text-ink-mute">
-              Чтобы питомец кушал — выполняй дневные рутины, прикрепляй фотоотчёт и подтверждай выполнение. Только после верификации всех обязательных рутин можно покормить его.
+              Чтобы питомец кушал — выполняй дневные рутины и снимай результат на камеру. Каждый снимок проверяется
+              прямо на устройстве: размытое фото, пустой кадр, тёмный снимок, старая фотография или повтор уже
+              отправленного кадра не засчитываются, и рутина остаётся невыполненной.
             </p>
           </section>
 
@@ -529,6 +594,8 @@ export default function PetPage() {
         </div>
         {photoOpen ? (
           <div className="mt-4 overflow-hidden rounded-2xl border border-line">
+            {/* A local data URL from FileReader: Next's optimizer cannot help here. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={getRoutineLog(photoOpen).photoDataUrl || ""}
               alt="Фотоотчёт по рутине"

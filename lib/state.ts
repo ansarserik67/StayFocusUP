@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   volume: 0.5,
   notifications: false,
   quoteNotifications: true,
+  quotesPerDay: 1,
   breakReminders: true,
   limits: {},
 };
@@ -259,6 +260,7 @@ function ensureRoutineLog(state: FocusState, routineId: string, today: string): 
     day: today,
     status: "pending",
     photoDataUrl: null,
+    photoHash: null,
     submittedAt: null,
     verifiedAt: null,
     note: null,
@@ -291,7 +293,9 @@ export function getRoutineLog(
 }
 
 export function allRoutinesVerified(state: FocusState, today: string): boolean {
-  if (state.routines.length === 0) return true;
+  // No routines configured means nothing was proven today, so the pet stays
+  // hungry until the user adds at least one.
+  if (state.routines.length === 0) return false;
   for (const routine of state.routines) {
     if (!routine.required) continue;
     const log = getRoutineLog(state, routine.id, today);
@@ -358,6 +362,10 @@ export type FocusAction =
       routineId: string;
       today: string;
       photoDataUrl: string | null;
+      /** Result of the automatic photo check: a pass verifies the routine. */
+      check?: { ok: boolean; reasons: string[] };
+      /** Perceptual hash of the accepted frame. */
+      photoHash?: string | null;
     }
   | { type: "verifyRoutine"; routineId: string; today: string }
   | { type: "rejectRoutine"; routineId: string; today: string }
@@ -511,14 +519,41 @@ export function focusReducer(state: FocusState, action: FocusAction): FocusState
     case "submitRoutinePhoto": {
       const currentLog = getRoutineLog(state, action.routineId, action.today);
       const routine = state.routines.find((r) => r.id === action.routineId);
+      const wasVerified = currentLog.status === "verified";
+      const check = action.check;
+
+      // With an automatic verdict a routine is verified the moment the photo
+      // passes, and stays rejected (with the reasons kept) when it does not.
+      const status: RoutineStatus = check
+        ? check.ok && action.photoDataUrl
+          ? "verified"
+          : "rejected"
+        : routine?.needsPhoto && !action.photoDataUrl
+          ? "pending"
+          : "submitted";
+
+      const now = new Date().toISOString();
       const nextLog: RoutineLog = {
         ...currentLog,
-        status: routine?.needsPhoto && !action.photoDataUrl ? "pending" : "submitted",
-        photoDataUrl: action.photoDataUrl,
-        submittedAt: new Date().toISOString(),
-        verifiedAt: null,
+        status,
+        // A rejected frame is not worth the storage: only the verdict matters.
+        photoDataUrl: status === "rejected" ? null : action.photoDataUrl,
+        photoHash: status === "verified" ? action.photoHash ?? null : null,
+        submittedAt: now,
+        verifiedAt: status === "verified" ? now : null,
+        note: check && !check.ok ? check.reasons.slice(0, 4).join(",") : null,
       };
-      return { ...state, routineLogs: upsertRoutineLog(state.routineLogs, nextLog) };
+
+      const reward =
+        status === "verified" && !wasVerified
+          ? routine?.rewardEnergy ?? DEFAULT_ROUTINE_REWARD_ENERGY
+          : 0;
+
+      return {
+        ...state,
+        energy: state.energy + reward,
+        routineLogs: upsertRoutineLog(state.routineLogs, nextLog),
+      };
     }
 
     case "verifyRoutine": {
@@ -702,6 +737,10 @@ function sanitizeSettings(value: unknown): SettingsState {
     volume: Math.max(0, Math.min(1, Number(raw.volume) || 0.5)),
     notifications: raw.notifications === true,
     quoteNotifications: raw.quoteNotifications !== false,
+    quotesPerDay:
+      raw.quotesPerDay === undefined
+        ? DEFAULT_SETTINGS.quotesPerDay
+        : clampNumber(raw.quotesPerDay, 0, 12, DEFAULT_SETTINGS.quotesPerDay),
     breakReminders: raw.breakReminders !== false,
     limits: sanitizeLimits(raw.limits),
   };
@@ -736,6 +775,7 @@ function sanitizeRoutineLog(value: unknown): RoutineLog | null {
     day: raw.day,
     status,
     photoDataUrl: typeof raw.photoDataUrl === "string" ? raw.photoDataUrl.slice(0, 5_000_000) : null,
+    photoHash: typeof raw.photoHash === "string" ? raw.photoHash.slice(0, 32) : null,
     submittedAt: typeof raw.submittedAt === "string" ? raw.submittedAt : null,
     verifiedAt: typeof raw.verifiedAt === "string" ? raw.verifiedAt : null,
     note: typeof raw.note === "string" ? raw.note.slice(0, 200) : null,

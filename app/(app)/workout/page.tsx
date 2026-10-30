@@ -37,7 +37,7 @@ import {
   type FormFault,
   type Landmark,
 } from "@/lib/workout/engine";
-import { loadPoseLandmarker } from "@/lib/workout/pose";
+import { loadPoseLandmarker, releasePoseLandmarker } from "@/lib/workout/pose";
 
 type Phase = "idle" | "connecting" | "active" | "denied" | "error" | "finished";
 
@@ -113,23 +113,53 @@ export default function WorkoutPage() {
   const lastSetAtRef = useRef(0);
   const lastPaintRef = useRef(0);
   const rewardedRef = useRef(false);
+  const startingRef = useRef(false);
 
   const config = EXERCISES[exercise];
 
+  /** Stops the loop, the camera and every track behind it. Idempotent. */
   const stop = useCallback(() => {
     runningRef.current = false;
+    startingRef.current = false;
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    for (const track of streamRef.current?.getTracks() ?? []) track.stop();
+    const stream = streamRef.current;
     streamRef.current = null;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+          /* track already ended by the browser */
+        }
+      }
+    }
+    // Detaching the stream is what actually releases the camera light on iOS;
+    // leaving the old MediaStream on the element keeps it alive.
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (canvas && context) context.clearRect(0, 0, canvas.width, canvas.height);
   }, []);
 
   useEffect(() => stop, [stop]);
+
+  // The landmarker holds WASM memory and a WebGL context, so the workout
+  // screen hands it back when it is done with it.
+  useEffect(() => {
+    const release = () => releasePoseLandmarker();
+    window.addEventListener("pagehide", release);
+    return () => {
+      window.removeEventListener("pagehide", release);
+      release();
+    };
+  }, []);
 
   useEffect(() => {
     if (!cameraExercise) return;
@@ -179,6 +209,10 @@ export default function WorkoutPage() {
     };
 
     const start = async () => {
+      // A fast double tap on "start" used to open two camera streams and two
+      // detection loops; only one start may ever be in flight.
+      if (startingRef.current) return;
+      startingRef.current = true;
       setPhase("connecting");
       setCounter(null);
       setErrorName("");
@@ -190,6 +224,7 @@ export default function WorkoutPage() {
       }
 
       if (!navigator.mediaDevices?.getUserMedia) {
+        startingRef.current = false;
         setErrorName("MediaDevicesUnsupported");
         setPhase("error");
         return;
@@ -207,12 +242,16 @@ export default function WorkoutPage() {
         streamRef.current = stream;
         const element = videoRef.current;
         if (!element) {
+          stream.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+          startingRef.current = false;
           setPhase("error");
           return;
         }
         element.srcObject = stream;
         await element.play().catch(() => undefined);
       } catch (error) {
+        startingRef.current = false;
         if (cancelled) return;
         const name = error instanceof Error ? error.name : "";
         setErrorName(name);
@@ -222,8 +261,13 @@ export default function WorkoutPage() {
 
       try {
         const landmarker = await loadPoseLandmarker();
-        if (cancelled) return;
+        if (cancelled) {
+          // The screen was left while the model was still warming up.
+          releasePoseLandmarker();
+          return;
+        }
 
+        startingRef.current = false;
         setPhase("active");
         runningRef.current = true;
         startedAtRef.current = performance.now();
@@ -274,8 +318,15 @@ export default function WorkoutPage() {
         };
 
         rafRef.current = requestAnimationFrame(tick);
-      } catch {
+      } catch (error) {
+        startingRef.current = false;
         if (cancelled) return;
+        // A release during load is not a failure the user should see.
+        const message = error instanceof Error ? error.name : "";
+        if (message === "PoseLandmarkerReleased") {
+          setPhase("idle");
+          return;
+        }
         setPhase("error");
         setErrorName("ModelUnavailable");
       }

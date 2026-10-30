@@ -29,7 +29,8 @@ import { useTheme } from "@/components/theme/ThemeProvider";
 import { Modal } from "@/components/ui/Modal";
 import { Toggle } from "@/components/ui/Toggle";
 import { useToast } from "@/components/ui/ToastProvider";
-import { LANGS, dailyQuote } from "@/lib/i18n";
+import { LANGS } from "@/lib/i18n";
+import { QUOTE_COUNTS, quoteFor, quoteSlots, slotLabel } from "@/lib/quotes";
 import {
   notificationPermission,
   notificationsSupported,
@@ -93,9 +94,10 @@ export default function SettingsPage() {
     if (result === "granted") {
       updateSettings({ notifications: true });
       push(t("notify.enabled"), "success");
+      const welcome = quoteFor(lang, dayKey(), 0, state.streak);
       void showSystemNotification(
         t("notify.quoteTitle"),
-        dailyQuote(lang, dayKey(), state.streak),
+        `${welcome.text} — ${welcome.author}`,
         "stay-focused-welcome",
       );
     } else if (result === "denied") {
@@ -151,7 +153,7 @@ export default function SettingsPage() {
 
             <div>
               <span className="field-label">{t("settings.theme")}</span>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid min-w-0 grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setTheme("dark")}
@@ -160,12 +162,12 @@ export default function SettingsPage() {
                     theme === "dark" ? "border-emerald/45 bg-emerald/10" : "border-line hover:border-line-strong"
                   }`}
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0F172A] text-cyan">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-[#0A0A0C] text-cyan ring-1 ring-white/10">
                     <Moon size={15} />
                   </span>
-                  <span>
+                  <span className="min-w-0">
                     <span className="block text-[12px] font-semibold">{t("settings.dark")}</span>
-                    <span className="block text-[10px] text-ink-mute">#0F172A + #10B981</span>
+                    <span className="block truncate text-[10px] text-ink-mute">#0A0A0C + #34D399</span>
                   </span>
                 </button>
                 <button
@@ -176,12 +178,12 @@ export default function SettingsPage() {
                     theme === "light" ? "border-emerald/45 bg-emerald/10" : "border-line hover:border-line-strong"
                   }`}
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F8FAFC] text-[#D97706] ring-1 ring-line">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-[#EEF0F5] text-[#D97706] ring-1 ring-line">
                     <Sun size={15} />
                   </span>
-                  <span>
+                  <span className="min-w-0">
                     <span className="block text-[12px] font-semibold">{t("settings.light")}</span>
-                    <span className="block text-[10px] text-ink-mute">#F8FAFC + indigo</span>
+                    <span className="block truncate text-[10px] text-ink-mute">#EEF0F5 + indigo</span>
                   </span>
                 </button>
               </div>
@@ -218,22 +220,80 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
-              <div>
-                <p className="text-[12.5px] font-medium">{t("settings.quoteOn")}</p>
-                <p className="mt-0.5 text-[10.5px] text-ink-mute">{t("settings.quoteOnDesc")}</p>
+            <div className="rounded-xl border border-line p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-medium">{t("settings.quotesTitle")}</p>
+                  <p className="mt-0.5 text-[10.5px] text-ink-mute">{t("settings.quotesDesc")}</p>
+                </div>
+                <Toggle
+                  checked={state.settings.quoteNotifications && state.settings.quotesPerDay > 0}
+                  onChange={(value) => {
+                    updateSettings({
+                      quoteNotifications: value,
+                      quotesPerDay: value
+                        ? state.settings.quotesPerDay > 0
+                          ? state.settings.quotesPerDay
+                          : 1
+                        : 0,
+                    });
+                  }}
+                  label={t("settings.quotesTitle")}
+                />
               </div>
-              <Toggle
-                checked={state.settings.notifications && state.settings.quoteNotifications}
-                onChange={(value) => {
-                  if (value && !granted) {
-                    void enableNotifications();
-                    return;
-                  }
-                  updateSettings({ notifications: value, quoteNotifications: value });
-                }}
-                label={t("settings.quoteOn")}
-              />
+
+              {state.settings.quoteNotifications && state.settings.quotesPerDay > 0 && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-mute">
+                    {t("settings.quotesHowMany")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {QUOTE_COUNTS.filter((value) => value > 0).map((value) => {
+                      const active = state.settings.quotesPerDay === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => updateSettings({ quotesPerDay: value })}
+                          className={`mono min-w-[36px] rounded-xl border px-2.5 py-1.5 text-[12.5px] font-semibold transition ${
+                            active
+                              ? "border-emerald/50 bg-emerald/12 text-emerald"
+                              : "border-line text-ink-soft hover:border-line-strong"
+                          }`}
+                        >
+                          {value}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="mt-2 text-[10.5px] leading-relaxed text-ink-mute">
+                    {t("settings.quotesSchedule", {
+                      times: quoteSlots(state.settings.quotesPerDay)
+                        .map((slot) => slotLabel(slot))
+                        .join(" · "),
+                    })}
+                  </p>
+
+                  <div className="mt-2.5 rounded-xl border border-line bg-surface-2/40 p-3">
+                    <p className="text-[12px] leading-relaxed text-ink">
+                      “{quoteFor(lang, dayKey(), 0, state.streak).text}”
+                    </p>
+                    <p className="mt-1 text-[10.5px] font-medium text-ink-mute">
+                      — {quoteFor(lang, dayKey(), 0, state.streak).author}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new Event("stay-focused:quote"))}
+                    className="mt-2 text-[11.5px] font-semibold text-cyan hover:underline"
+                  >
+                    {t("settings.quotesPreview")} →
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">

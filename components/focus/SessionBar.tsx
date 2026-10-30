@@ -51,11 +51,11 @@ export function SessionBar() {
 
   return (
     <div
-      className={`sticky top-[64px] z-40 border-b backdrop-blur-xl ${
-        live ? "border-cyan/25 bg-cyan/12" : "border-line/70 bg-background/80"
+      className={`sticky top-[60px] z-40 border-b backdrop-blur-2xl sm:top-[66px] ${
+        live ? "border-cyan/25 bg-cyan/12" : "border-line/70 bg-background/70"
       }`}
     >
-      <div className="container-app flex h-[46px] items-center gap-3">
+      <div className="container-app flex h-[48px] items-center gap-2.5 sm:gap-3">
         <span
           className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-[9px] text-white"
           style={{ background: app.tint }}
@@ -80,7 +80,7 @@ export function SessionBar() {
           </div>
         </div>
 
-        <span className="mono font-display flex-none text-[18px] font-extrabold text-cyan">
+        <span className="mono font-display flex-none text-[17px] font-bold text-cyan sm:text-[18px]">
           {live ? formatDuration(remaining) : formatDuration(summary?.remainingSeconds ?? 0)}
         </span>
 
@@ -90,7 +90,8 @@ export function SessionBar() {
             onClick={endSession}
             className="btn btn-secondary !min-h-[30px] flex-none px-2.5 text-[11.5px]"
           >
-            {t("social.endSession")}
+            <span className="hidden sm:inline">{t("social.endSession")}</span>
+            <span className="sm:hidden">■</span>
           </button>
         )}
       </div>

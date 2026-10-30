@@ -16,18 +16,22 @@ import {
 } from "../lib/workout/engine";
 import {
   addDays,
+  allRoutinesVerified,
   appLimitSeconds,
   appRemainingSeconds,
   appUsedSeconds,
   createInitialState,
   dayKey,
   focusReducer,
+  getRoutineLog,
   mergeRemote,
   remainingSeconds,
   rollover,
   sanitizeState,
 } from "../lib/state";
-import { taskXp, type Task, type WorkoutLog } from "../lib/types";
+import { taskXp, type Routine, type Task, type WorkoutLog } from "../lib/types";
+import { judgeReport, metricsFromPixels, perceptualHash } from "../lib/routine-check";
+import { QUOTES, quoteFor, quoteSlots, slotLabel } from "../lib/quotes";
 import { translate, isLang, dailyQuote, formatDuration } from "../lib/i18n";
 
 let passed = 0;
@@ -251,6 +255,262 @@ test("feeding is refused without energy", () => {
     happiness: 10,
   });
   assert.equal(next, state);
+});
+
+const ROUTINE: Routine = {
+  id: "r1",
+  title: "Make the bed",
+  required: true,
+  needsPhoto: true,
+  rewardEnergy: 10,
+  createdAt: new Date().toISOString(),
+};
+
+test("the pet is only fed once every required routine is verified today", () => {
+  let state = createInitialState("2026-10-24");
+  state = focusReducer(state, { type: "addRoutine", routine: ROUTINE });
+
+  // No routine done yet: feeding is refused and nothing is charged.
+  const refused = focusReducer(state, { type: "feedPetByRoutines", today: "2026-10-24" });
+  assert.equal(refused, state);
+
+  // A photo alone is a submission, not a verification.
+  const submitted = focusReducer(state, {
+    type: "submitRoutinePhoto",
+    routineId: "r1",
+    today: "2026-10-24",
+    photoDataUrl: "data:image/png;base64,AAA",
+  });
+  assert.equal(getRoutineLog(submitted, "r1", "2026-10-24").status, "submitted");
+  assert.equal(
+    focusReducer(submitted, { type: "feedPetByRoutines", today: "2026-10-24" }),
+    submitted,
+  );
+
+  const verified = focusReducer(submitted, {
+    type: "verifyRoutine",
+    routineId: "r1",
+    today: "2026-10-24",
+  });
+  assert.equal(verified.energy, 30 + ROUTINE.rewardEnergy);
+
+  // Verifying twice must not pay twice, and a second feed is refused.
+  const twice = focusReducer(verified, { type: "verifyRoutine", routineId: "r1", today: "2026-10-24" });
+  assert.equal(twice.energy, verified.energy);
+
+  const fed = focusReducer(twice, { type: "feedPetByRoutines", today: "2026-10-24" });
+  assert.equal(fed.pet.fedViaRoutinesDay, "2026-10-24");
+  assert.equal(fed.pet.lastFedDay, "2026-10-24");
+  assert.ok(fed.pet.happiness >= twice.pet.happiness);
+  assert.equal(focusReducer(fed, { type: "feedPetByRoutines", today: "2026-10-24" }), fed);
+
+  // Yesterday's verification does not unlock today's feeding.
+  const tomorrow = rollover(fed, "2026-10-25");
+  assert.equal(tomorrow.pet.fedViaRoutinesDay, null);
+  assert.equal(
+    focusReducer(tomorrow, { type: "feedPetByRoutines", today: "2026-10-25" }),
+    tomorrow,
+  );
+});
+
+test("a rejected routine has to be submitted again before it counts", () => {
+  let state = createInitialState("2026-10-24");
+  state = focusReducer(state, { type: "addRoutine", routine: ROUTINE });
+  state = focusReducer(state, {
+    type: "submitRoutinePhoto",
+    routineId: "r1",
+    today: "2026-10-24",
+    photoDataUrl: "data:image/png;base64,AAA",
+  });
+  state = focusReducer(state, { type: "rejectRoutine", routineId: "r1", today: "2026-10-24" });
+  assert.equal(allRoutinesVerified(state, "2026-10-24"), false);
+  state = focusReducer(state, {
+    type: "submitRoutinePhoto",
+    routineId: "r1",
+    today: "2026-10-24",
+    photoDataUrl: "data:image/png;base64,BBB",
+  });
+  assert.equal(getRoutineLog(state, "r1", "2026-10-24").status, "submitted");
+  assert.equal(getRoutineLog(state, "r1", "2026-10-24").photoDataUrl, "data:image/png;base64,BBB");
+});
+
+/** Builds a greyscale RGBA frame so the photo checks can run without a browser. */
+function frame(width: number, height: number, paint: (x: number, y: number) => number) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const value = Math.max(0, Math.min(255, paint(x, y)));
+      const index = (y * width + x) * 4;
+      data[index] = value;
+      data[index + 1] = value;
+      data[index + 2] = value;
+      data[index + 3] = 255;
+    }
+  }
+  return data;
+}
+
+const noise = (x: number, y: number) => (((x * 37 + y * 17) % 97) / 97) * 60;
+
+/** A structured, in-focus frame — what a real photo of a made bed looks like. */
+function photoFrame(width = 360, height = 270) {
+  return frame(width, height, (x, y) =>
+    (Math.floor(x / 9) + Math.floor(y / 9)) % 2 ? 190 + noise(x, y) : 70 + noise(y, x),
+  );
+}
+
+test("a structured photo passes the automatic report check", () => {
+  const pixels = photoFrame();
+  const metrics = metricsFromPixels(pixels, 360, 270);
+  assert.ok(metrics);
+  const verdict = judgeReport(metrics, {
+    seenHashes: [],
+    fileAgeMs: 60_000,
+    naturalWidth: 1200,
+    naturalHeight: 900,
+  });
+  assert.deepEqual(verdict, { ok: true, reasons: [] });
+});
+
+test("blank, blurry, tiny, stale and reused photos are all rejected with a reason", () => {
+  const big = { naturalWidth: 1200, naturalHeight: 900 };
+
+  const flat = metricsFromPixels(frame(360, 270, () => 128), 360, 270);
+  assert.ok(judgeReport(flat, big).reasons.includes("flat"));
+
+  const gradient = metricsFromPixels(frame(360, 270, (x) => 40 + x * 0.2), 360, 270);
+  assert.ok(judgeReport(gradient, big).reasons.includes("blurry"));
+
+  const tiny = metricsFromPixels(photoFrame(200, 150), 200, 150);
+  assert.ok(judgeReport(tiny).reasons.includes("tooSmall"));
+  // A phone photo shrunk to the analysis size must not look "too small": the
+  // original dimensions are what decide that.
+  const shrunk = metricsFromPixels(photoFrame(320, 240), 320, 240);
+  assert.ok(
+    !judgeReport(shrunk, { naturalWidth: 3024, naturalHeight: 4032 }).reasons.includes(
+      "tooSmall",
+    ),
+  );
+
+  const dark = metricsFromPixels(frame(360, 270, (x, y) => ((x + y) % 2 ? 8 : 10)), 360, 270);
+  assert.ok(judgeReport(dark, big).reasons.includes("tooDark"));
+
+  const good = metricsFromPixels(photoFrame(), 360, 270);
+  assert.ok(good);
+  const reused = judgeReport(good, { seenHashes: [good.hash], ...big });
+  assert.deepEqual(reused.reasons, ["duplicate"]);
+
+  const stale = judgeReport(good, { fileAgeMs: 72 * 60 * 60 * 1000, ...big });
+  assert.deepEqual(stale.reasons, ["stalePhoto"]);
+
+  assert.equal(judgeReport(null).ok, false);
+  assert.equal(metricsFromPixels(new Uint8ClampedArray(8), 4, 4), null);
+});
+
+test("identical frames hash identically, different ones do not", () => {
+  const a = perceptualHash(photoFrame(), 360, 270);
+  const b = perceptualHash(photoFrame(), 360, 270);
+  const c = perceptualHash(frame(360, 270, (x, y) => 255 - (Math.floor(x / 9) + Math.floor(y / 9)) % 2 * 120), 360, 270);
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+  assert.equal(a.length, 18);
+});
+
+test("a passing photo verifies the routine immediately", () => {
+  let state = createInitialState("2026-10-24");
+  state = focusReducer(state, { type: "addRoutine", routine: ROUTINE });
+  state = focusReducer(state, {
+    type: "submitRoutinePhoto",
+    routineId: "r1",
+    today: "2026-10-24",
+    photoDataUrl: "data:image/jpeg;base64,AAA",
+    check: { ok: true, reasons: [] },
+    photoHash: "abc123",
+  });
+
+  const log = getRoutineLog(state, "r1", "2026-10-24");
+  assert.equal(log.status, "verified");
+  assert.equal(log.photoHash, "abc123");
+  assert.equal(state.energy, 30 + ROUTINE.rewardEnergy);
+  assert.equal(allRoutinesVerified(state, "2026-10-24"), true);
+});
+
+test("a failing photo keeps the reasons and never counts as done", () => {
+  let state = createInitialState("2026-10-24");
+  state = focusReducer(state, { type: "addRoutine", routine: ROUTINE });
+  state = focusReducer(state, {
+    type: "submitRoutinePhoto",
+    routineId: "r1",
+    today: "2026-10-24",
+    photoDataUrl: "data:image/jpeg;base64,AAA",
+    check: { ok: false, reasons: ["blurry", "duplicate"] },
+  });
+
+  const log = getRoutineLog(state, "r1", "2026-10-24");
+  assert.equal(log.status, "rejected");
+  assert.equal(log.note, "blurry,duplicate");
+  assert.equal(log.photoDataUrl, null);
+  assert.equal(state.energy, 30);
+  assert.equal(allRoutinesVerified(state, "2026-10-24"), false);
+});
+
+test("quote slots spread the chosen count across the day", () => {
+  assert.deepEqual(quoteSlots(0), []);
+  assert.deepEqual(quoteSlots(1), [540]);
+  assert.deepEqual(quoteSlots(4), [540, 720, 900, 1080]);
+  assert.equal(slotLabel(540), "09:00");
+  assert.equal(slotLabel(1080), "18:00");
+
+  const eight = quoteSlots(8);
+  assert.equal(eight.length, 8);
+  for (let index = 1; index < eight.length; index += 1) {
+    assert.ok(eight[index] > eight[index - 1], "slots stay in order");
+  }
+  // Nothing lands after the quiet window ends.
+  assert.ok(eight[eight.length - 1] < 21 * 60);
+
+  assert.deepEqual(quoteSlots(-3), []);
+  assert.equal(quoteSlots(99).length, 12);
+  assert.equal(quoteSlots(120).length, 12);
+});
+
+test("every quote is attributed and neighbouring slots differ", () => {
+  for (const lang of ["en", "ru", "kk"] as const) {
+    const list = QUOTES[lang];
+    assert.ok(list.length >= 10, `${lang} has a full pool`);
+    for (const quote of list) {
+      assert.ok(quote.text.length > 10);
+      assert.ok(quote.author.length > 2, `${lang} quote without an author`);
+    }
+
+    const day = "2026-10-30";
+    for (let index = 0; index < list.length; index += 1) {
+      const current = quoteFor(lang, day, index);
+      const next = quoteFor(lang, day, index + 1);
+      assert.notEqual(
+        `${current.author}:${current.text}`,
+        `${next.author}:${next.text}`,
+        "two consecutive quotes must come from different lines",
+      );
+    }
+    assert.deepEqual(quoteFor(lang, day, 2), quoteFor(lang, day, 2));
+    assert.notDeepEqual(quoteFor(lang, "2026-10-31", 2), quoteFor(lang, "2026-11-01", 2));
+  }
+});
+
+test("the daily quote count defaults to one and is clamped on load", () => {
+  const fresh = createInitialState("2026-10-24");
+  assert.equal(fresh.settings.quotesPerDay, 1);
+  assert.equal(fresh.settings.quoteNotifications, true);
+
+  const tooMany = sanitizeState({ settings: { quotesPerDay: 99 } }, "2026-10-24");
+  assert.equal(tooMany.settings.quotesPerDay, 12);
+
+  const negative = sanitizeState({ settings: { quotesPerDay: -4 } }, "2026-10-24");
+  assert.equal(negative.settings.quotesPerDay, 0);
+
+  const missing = sanitizeState({ settings: { grayscale: true } }, "2026-10-24");
+  assert.equal(missing.settings.quotesPerDay, 1);
 });
 
 test("the streak survives one rollover and lapses after a missed day", () => {

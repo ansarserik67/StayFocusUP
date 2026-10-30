@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Manrope } from "next/font/google";
+import { Inter } from "next/font/google";
 
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
@@ -8,14 +8,10 @@ import { PwaProvider } from "@/components/pwa/PwaProvider";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
+// A single humanist grotesque in the SF Pro spirit: Inter carries the whole
+// hierarchy so headings and body copy share one voice.
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin", "cyrillic"],
-  display: "swap",
-});
-
-const manrope = Manrope({
-  variable: "--font-manrope",
   subsets: ["latin", "cyrillic"],
   display: "swap",
 });
@@ -74,7 +70,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0F172A" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A0C" },
     { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
   ],
   width: "device-width",
@@ -90,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${manrope.variable} dark h-full antialiased`}
+      className={`${inter.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

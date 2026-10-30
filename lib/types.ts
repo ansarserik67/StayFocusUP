@@ -48,8 +48,11 @@ export interface RoutineLog {
   day: string;
   status: RoutineStatus;
   photoDataUrl: string | null;
+  /** Perceptual hash of the accepted photo — used to reject reuse. */
+  photoHash: string | null;
   submittedAt: string | null;
   verifiedAt: string | null;
+  /** Comma-separated reason codes when the automatic check rejected the photo. */
   note: string | null;
 }
 
@@ -83,6 +86,8 @@ export interface SettingsState {
   volume: number;
   notifications: boolean;
   quoteNotifications: boolean;
+  /** How many motivational quotes land per day (0 turns them off). */
+  quotesPerDay: number;
   breakReminders: boolean;
   /** Daily limit in minutes for a single social app id. */
   limits: Record<string, number>;

@@ -10,9 +10,11 @@ import { SessionWatcher } from "@/components/layout/SessionWatcher";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { ReminderScheduler } from "@/components/notifications/ReminderScheduler";
+import { useRail } from "@/lib/use-rail";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { open: railOpen } = useRail();
 
   useEffect(() => {
     // Route changes should start at the top even though the document uses
@@ -23,7 +25,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-[100dvh]">
       <Sidebar />
-      <div className="flex min-h-[100dvh] flex-col lg:pl-[252px]">
+      <div
+        className={`flex min-h-[100dvh] flex-col transition-[padding] duration-300 ${
+          railOpen ? "lg:pl-[272px]" : "lg:pl-0"
+        }`}
+      >
         <TopBar />
         <SessionBar />
         <main id="main" className="container-app page-pad flex-1">

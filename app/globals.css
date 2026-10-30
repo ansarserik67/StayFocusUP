@@ -1,77 +1,81 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Stay Focused design system
-   Night (default): #0F172A deep slate with mint #10B981 and electric cyan.
-   Day: #F8FAFC with deep emerald and indigo.
+   StayFocus design system — dark glass.
+   Deep near-black canvas (#0A0A0C), frosted translucent surfaces, hairline
+   borders, generous 24px radii and a single mint→cyan accent gradient.
+   The token names are the contract every screen already uses (`card`, `chip`,
+   `btn`, `bg-surface-2`, `text-ink-mute`…), so retuning them restyles the whole
+   app without touching each page.
    ========================================================================== */
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f8fafc;
-  --background-2: #eef6f4;
-  --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --panel: #ffffff;
-  --line: #dde6ef;
-  --line-strong: #c3d3e2;
-  --ink: #0b1220;
-  --ink-soft: #46586f;
-  --ink-mute: #6b7d93;
+  /* light: a soft frosted daylight variant of the same geometry */
+  --background: #eef0f5;
+  --background-2: #e6e9f1;
+  --surface: rgba(255, 255, 255, 0.7);
+  --surface-2: rgba(255, 255, 255, 0.55);
+  --panel: rgba(255, 255, 255, 0.82);
+  --line: rgba(12, 14, 24, 0.09);
+  --line-strong: rgba(12, 14, 24, 0.16);
+  --ink: #0a0a0c;
+  --ink-soft: #4a4a55;
+  --ink-mute: #71717c;
 
   --emerald: #059669;
   --emerald-bright: #10b981;
   --mint: #10b981;
   --cyan: #0891b2;
   --cyan-bright: #06b6d4;
-  --indigo: #4f46e5;
-  --amber: #d97706;
+  --indigo: #7c6bf5;
+  --amber: #b47708;
   --rose: #e11d48;
 
-  --glow-emerald: rgba(16, 185, 129, 0.2);
-  --glow-cyan: rgba(6, 182, 212, 0.2);
-  --glow-indigo: rgba(79, 70, 229, 0.16);
-  --sheen: rgba(255, 255, 255, 0.9);
+  --glow-emerald: rgba(16, 185, 129, 0.18);
+  --glow-cyan: rgba(6, 182, 212, 0.16);
+  --glow-indigo: rgba(124, 107, 245, 0.16);
+  --sheen: rgba(255, 255, 255, 0.95);
 
-  --shadow-card: 0 1px 2px rgba(11, 18, 32, 0.05),
-    0 18px 38px -28px rgba(11, 18, 32, 0.3);
-  --shadow-lift: 0 2px 6px rgba(11, 18, 32, 0.06),
-    0 30px 60px -32px rgba(11, 18, 32, 0.35);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --shadow-card: 0 1px 1px rgba(10, 12, 22, 0.04), 0 22px 44px -30px rgba(10, 12, 22, 0.45);
+  --shadow-lift: 0 2px 4px rgba(10, 12, 22, 0.06), 0 34px 64px -32px rgba(10, 12, 22, 0.5);
+  --shadow-nav: 0 18px 44px -18px rgba(10, 12, 22, 0.35);
 
   color-scheme: light;
 }
 
 .dark {
-  --background: #0f172a;
-  --background-2: #0a1020;
-  --surface: #141f35;
-  --surface-2: #1b2942;
-  --panel: #101a2e;
-  --line: #24344f;
-  --line-strong: #33486a;
-  --ink: #e9f1fb;
-  --ink-soft: #a9b8cf;
-  --ink-mute: #7b8da6;
+  --background: #0a0a0c;
+  --background-2: #121216;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.075);
+  --panel: rgba(20, 20, 24, 0.72);
+  --line: rgba(255, 255, 255, 0.085);
+  --line-strong: rgba(255, 255, 255, 0.17);
+  --ink: #f5f5f7;
+  --ink-soft: #a4a4ad;
+  --ink-mute: #73737d;
 
-  --emerald: #10b981;
-  --emerald-bright: #34d399;
-  --mint: #10b981;
+  --emerald: #34d399;
+  --emerald-bright: #6ee7b7;
+  --mint: #34d399;
   --cyan: #22d3ee;
   --cyan-bright: #67e8f9;
-  --indigo: #818cf8;
+  --indigo: #a78bfa;
   --amber: #fbbf24;
   --rose: #fb7185;
 
-  --glow-emerald: rgba(16, 185, 129, 0.25);
+  --glow-emerald: rgba(52, 211, 153, 0.22);
   --glow-cyan: rgba(34, 211, 238, 0.2);
-  --glow-indigo: rgba(129, 140, 248, 0.18);
-  --sheen: rgba(255, 255, 255, 0.16);
+  --glow-indigo: rgba(167, 139, 250, 0.2);
+  --sheen: rgba(255, 255, 255, 0.22);
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35),
-    0 20px 44px -30px rgba(0, 0, 0, 0.9);
-  --shadow-lift: 0 2px 8px rgba(0, 0, 0, 0.4),
-    0 36px 70px -34px rgba(0, 0, 0, 0.95);
+  --glass-hi: rgba(255, 255, 255, 0.08);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 48px -32px rgba(0, 0, 0, 0.9);
+  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 36px 70px -30px rgba(0, 0, 0, 0.95);
+  --shadow-nav: 0 20px 50px -20px rgba(0, 0, 0, 0.85);
 
   color-scheme: dark;
 }
@@ -96,10 +100,12 @@
   --color-amber: var(--amber);
   --color-rose: var(--rose);
 
-  --font-display: var(--font-manrope), "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter), "Inter", ui-sans-serif, system-ui, -apple-system,
+    "SF Pro Display", sans-serif;
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, -apple-system,
+    "SF Pro Text", sans-serif;
 
-  --radius-card: 20px;
+  --radius-card: 24px;
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 
   --animate-float: float 6.5s ease-in-out infinite;
@@ -119,14 +125,31 @@
   border-color: var(--line);
 }
 
+@layer base {
+  /* Flex and grid children default to min-width:auto, so one unbreakable
+     child — a nowrap chip, a chart canvas, an input — stretches its column
+     past the phone width and the whole page starts to scroll sideways.
+     Letting them shrink below their content is what makes the layout fluid. */
+  .grid > *,
+  .flex > * {
+    min-width: 0;
+  }
+}
+
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  /* A single min-content child must never turn the phone layout into a
+     horizontally scrolling page. Inner strips keep their own overflow-x. */
+  overflow-x: hidden;
 }
 
 body {
   background: var(--background);
   color: var(--ink);
+  /* Decorative glows bleed past the card they belong to; clip instead of
+     letting them grow the document width on a phone. */
+  overflow-x: clip;
   font-family: var(--font-sans);
   font-size: 15.5px;
   line-height: 1.6;
@@ -142,7 +165,7 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   line-height: 1.08;
   font-weight: 800;
 }
@@ -155,7 +178,7 @@ h4 {
 :focus-visible {
   outline: 2px solid var(--emerald);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 /* ---------- canvas ---------- */
@@ -164,61 +187,63 @@ h4 {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(900px 520px at 8% -6%, var(--glow-emerald), transparent 62%),
-    radial-gradient(760px 480px at 96% 2%, var(--glow-cyan), transparent 60%),
-    radial-gradient(700px 600px at 50% 112%, var(--glow-indigo), transparent 64%),
-    linear-gradient(180deg, var(--background), var(--background-2) 72%, var(--background));
+    radial-gradient(780px 520px at 6% -10%, var(--glow-emerald), transparent 62%),
+    radial-gradient(700px 460px at 100% -4%, var(--glow-indigo), transparent 60%),
+    radial-gradient(760px 620px at 50% 112%, var(--glow-cyan), transparent 64%),
+    linear-gradient(180deg, var(--background), var(--background-2) 68%, var(--background));
 }
 
 .dark .page-canvas {
   background:
-    radial-gradient(900px 520px at 6% -8%, rgba(16, 185, 129, 0.16), transparent 60%),
-    radial-gradient(760px 480px at 98% 0%, rgba(34, 211, 238, 0.12), transparent 58%),
-    radial-gradient(900px 700px at 50% 118%, rgba(99, 102, 241, 0.14), transparent 62%),
-    linear-gradient(180deg, #0f172a, #0b1222 55%, #080e1b);
+    radial-gradient(820px 540px at 4% -12%, rgba(52, 211, 153, 0.14), transparent 60%),
+    radial-gradient(720px 480px at 102% -6%, rgba(167, 139, 250, 0.16), transparent 58%),
+    radial-gradient(900px 640px at 48% 114%, rgba(34, 211, 238, 0.1), transparent 62%),
+    linear-gradient(180deg, #0a0a0c, #0b0b0f 52%, #08080a);
 }
 
+/* faint grid, only in the light-free dark theme */
 .app-grid::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--ink) 5%, transparent) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 78%);
-  opacity: 0.5;
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 18%, transparent 78%);
+  opacity: 0.6;
 }
 
 /* ---------- layout ---------- */
 
 .container-app {
   width: 100%;
-  max-width: 1280px;
+  max-width: 1240px;
   margin-inline: auto;
   padding-inline: 16px;
 }
 
 @media (min-width: 768px) {
   .container-app {
-    padding-inline: 28px;
+    padding-inline: 26px;
   }
 }
 
 @media (min-width: 1280px) {
   .container-app {
-    padding-inline: 40px;
+    padding-inline: 36px;
   }
 }
 
+/* Bottom padding clears the floating bar on phones. */
 .page-pad {
-  padding-block: 18px 104px;
+  padding-block: 16px 118px;
 }
 
 @media (min-width: 1024px) {
   .page-pad {
-    padding-block: 28px 48px;
+    padding-block: 26px 56px;
   }
 }
 
@@ -232,34 +257,35 @@ h4 {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(34px, 6.2vw, 68px);
-  line-height: 1.01;
-  letter-spacing: -0.04em;
+  line-height: 1;
+  letter-spacing: -0.045em;
 }
 
 .text-page {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(24px, 3.6vw, 34px);
+  font-weight: 780;
+  font-size: clamp(23px, 3.4vw, 33px);
   line-height: 1.08;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
 }
 
 .text-card {
   font-family: var(--font-display);
-  font-weight: 750;
-  font-size: 17.5px;
+  font-weight: 700;
+  font-size: 17px;
   line-height: 1.25;
+  letter-spacing: -0.02em;
 }
 
 .eyebrow {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
 .text-grad {
-  background: linear-gradient(100deg, var(--cyan-bright) 0%, var(--emerald-bright) 52%, var(--cyan) 100%);
+  background: linear-gradient(100deg, var(--cyan-bright) 0%, var(--emerald-bright) 54%, var(--cyan) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -277,17 +303,21 @@ h4 {
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px) saturate(180%);
 }
 
 .glass {
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  background: var(--panel);
   border: 1px solid var(--line);
-  backdrop-filter: blur(18px) saturate(150%);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(22px) saturate(180%);
+  box-shadow: var(--shadow-card);
 }
 
 .card-hover {
   transition: transform 260ms var(--ease-out-soft),
-    box-shadow 260ms var(--ease-out-soft), border-color 260ms var(--ease-out-soft);
+    box-shadow 260ms var(--ease-out-soft), border-color 260ms var(--ease-out-soft),
+    background-color 260ms var(--ease-out-soft);
 }
 
 .card-hover:hover {
@@ -306,7 +336,7 @@ h4 {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(140deg, var(--glow-cyan), transparent 42%, var(--glow-emerald));
+  background: linear-gradient(140deg, var(--glow-cyan), transparent 44%, var(--glow-emerald));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -315,6 +345,12 @@ h4 {
 
 .hairline {
   border-top: 1px solid var(--line);
+}
+
+.divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--line), transparent);
 }
 
 /* ---------- buttons ---------- */
@@ -327,7 +363,8 @@ h4 {
   border-radius: 999px;
   font-family: var(--font-display);
   font-size: 14.5px;
-  font-weight: 700;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   padding: 11px 19px;
   min-height: 44px;
   cursor: pointer;
@@ -338,32 +375,34 @@ h4 {
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .btn-primary {
-  background: linear-gradient(100deg, var(--emerald) 0%, var(--cyan) 100%);
-  color: #032018;
-  box-shadow: 0 16px 30px -18px var(--glow-emerald), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  background: linear-gradient(120deg, var(--emerald) 0%, var(--cyan) 100%);
+  color: #04150f;
+  box-shadow: 0 14px 30px -16px var(--glow-emerald), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 22px 40px -18px var(--glow-emerald);
+  box-shadow: 0 22px 42px -18px var(--glow-emerald);
 }
 
 .btn-primary:active:not(:disabled) {
-  transform: translateY(0) scale(0.99);
+  transform: translateY(0) scale(0.985);
 }
 
 .btn-secondary {
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--ink);
   border: 1px solid var(--line-strong);
+  backdrop-filter: blur(14px);
 }
 
 .btn-secondary:hover:not(:disabled) {
+  background: var(--surface);
   border-color: var(--emerald);
   transform: translateY(-2px);
 }
@@ -376,11 +415,11 @@ h4 {
 
 .btn-ghost:hover:not(:disabled) {
   color: var(--ink);
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  background: var(--surface-2);
 }
 
 .btn-danger {
-  background: linear-gradient(100deg, #f97316, #ef4444);
+  background: linear-gradient(120deg, #f97316, #ef4444);
   color: #fff;
   box-shadow: 0 14px 30px -16px rgba(239, 68, 68, 0.5);
 }
@@ -394,8 +433,9 @@ h4 {
   justify-content: center;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  background: var(--surface);
   color: var(--ink-soft);
+  backdrop-filter: blur(14px) saturate(160%);
   transition: color 160ms, border-color 160ms, background-color 160ms, transform 160ms;
 }
 
@@ -403,6 +443,11 @@ h4 {
   color: var(--ink);
   border-color: var(--line-strong);
   background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
 }
 
 /* ---------- chips ---------- */
@@ -413,12 +458,13 @@ h4 {
   gap: 6px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  background: var(--surface);
   padding: 4px 11px;
   font-size: 11.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ink-soft);
   white-space: nowrap;
+  backdrop-filter: blur(12px);
 }
 
 /* ---------- fields ---------- */
@@ -427,21 +473,22 @@ h4 {
   display: block;
   margin-bottom: 6px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ink-soft);
 }
 
 .field-input {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--surface);
-  padding: 10px 12px;
-  font-size: 14.5px;
+  padding: 10px 13px;
+  font-size: 15px;
   font-family: var(--font-sans);
   color: var(--ink);
   min-height: 44px;
-  transition: border-color 160ms, box-shadow 160ms;
+  backdrop-filter: blur(14px);
+  transition: border-color 160ms, box-shadow 160ms, background-color 160ms;
 }
 
 .field-input::placeholder {
@@ -458,63 +505,107 @@ select.field-input {
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-mute) 50%),
     linear-gradient(135deg, var(--ink-mute) 50%, transparent 50%);
-  background-position: calc(100% - 18px) 20px, calc(100% - 13px) 20px;
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
   padding-right: 34px;
 }
 
-/* ---------- nav ---------- */
+select.field-input option {
+  background: var(--background-2);
+  color: var(--ink);
+}
+
+/* ---------- navigation ---------- */
+
+.nav-rail {
+  position: fixed;
+  inset-block: 14px;
+  inset-inline-start: 14px;
+  z-index: 40;
+  display: flex;
+  width: 244px;
+  flex-direction: column;
+  border-radius: 28px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 18px 12px;
+  backdrop-filter: blur(26px) saturate(180%);
+  box-shadow: var(--shadow-nav);
+}
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 11px;
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 10px 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 550;
   color: var(--ink-soft);
   transition: background-color 180ms, color 180ms;
 }
 
 .nav-item:hover {
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  background: var(--surface-2);
   color: var(--ink);
 }
 
 .nav-item[data-active="true"] {
   background: linear-gradient(
     100deg,
-    color-mix(in srgb, var(--emerald) 16%, transparent),
+    color-mix(in srgb, var(--emerald) 18%, transparent),
     color-mix(in srgb, var(--cyan) 10%, transparent)
   );
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--emerald) 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--emerald) 26%, transparent);
 }
 
 .nav-item[data-active="true"] svg {
   color: var(--emerald);
 }
 
+/* floating bottom bar */
+.bottom-bar {
+  position: fixed;
+  inset-inline: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 50;
+  border-radius: 26px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 7px 6px;
+  backdrop-filter: blur(26px) saturate(180%);
+  box-shadow: var(--shadow-nav), inset 0 1px 0 var(--glass-hi);
+}
+
 .bottom-nav-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  border-radius: 12px;
-  padding: 7px 4px 6px;
+  border-radius: 18px;
+  padding: 8px 2px 6px;
   font-size: 9.5px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--ink-mute);
-  transition: color 180ms, background-color 180ms;
+  transition: color 180ms, background-color 180ms, transform 180ms;
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.94);
 }
 
 .bottom-nav-item[data-active="true"] {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--emerald) 13%, transparent);
+}
+
+.bottom-nav-item[data-active="true"] svg {
   color: var(--emerald);
-  background: color-mix(in srgb, var(--emerald) 10%, transparent);
 }
 
 /* ---------- effects ---------- */
@@ -547,7 +638,7 @@ select.field-input {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.045;
+  opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
 }
 
@@ -612,9 +703,9 @@ select.field-input {
 }
 
 .recharts-default-tooltip {
-  border-radius: 12px !important;
+  border-radius: 14px !important;
   border: 1px solid var(--line) !important;
-  background: var(--surface) !important;
+  background: var(--background-2) !important;
   box-shadow: var(--shadow-lift) !important;
   color: var(--ink) !important;
 }
